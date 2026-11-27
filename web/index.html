@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Matterhorn – focus timer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#6DC1EE;--num:#9EA0A8;--line:#424650;--head:#EBEBF0;--accent:var(--blue);--bg:#14171d;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--bg);color:var(--blue);font-family:'Outfit','Segoe UI',system-ui,sans-serif;overflow:hidden}
+body.rest{--accent:#8fd3c4}
+#scene{position:fixed;inset:0;width:100%;height:100%}
+.hud{position:absolute;left:clamp(20px,5vw,80px);top:clamp(24px,6vh,70px);z-index:2;max-width:calc(100% - 40px)}
+#mode{font-size:14px;letter-spacing:.5em;color:var(--head);font-weight:400;text-transform:uppercase}
+#clock{font-size:clamp(76px,12vw,160px);font-weight:200;line-height:1;letter-spacing:-.01em;margin:.1em 0 .2em -.04em;color:var(--num);font-variant-numeric:tabular-nums}
+#bar{display:flex;gap:6px;width:min(470px,84vw);height:3px}
+#bar i{display:block;height:100%;background:var(--line);overflow:hidden}
+#bar i b{display:block;height:100%;width:0;background:var(--accent)}
+.info{display:grid;grid-template-columns:auto 1fr;gap:8px 24px;margin-top:22px;font-size:13px;letter-spacing:.24em;text-transform:uppercase}
+.info .k{color:var(--head)}
+.info .num{color:var(--num)}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+button{font:inherit;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);background:transparent;border:1px solid var(--line);border-radius:3px;padding:9px 16px;cursor:pointer}
+button:hover{border-color:var(--blue)}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+button[aria-pressed=true]{border-color:var(--blue)}
+details{margin-top:16px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--blue)}
+summary{cursor:pointer;width:max-content}
+.set{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap}
+.set label{display:flex;flex-direction:column;gap:5px}
+.set input{width:70px;background:transparent;color:var(--num);border:1px solid var(--line);border-radius:3px;padding:6px;font:inherit;letter-spacing:.05em}
+.set input[type=range]{accent-color:var(--blue);padding:0;border:0}
+.keys{margin-top:16px;font-size:11px;letter-spacing:.12em;color:var(--num);text-transform:uppercase}
+#scene text{font-family:'Outfit',sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;paint-order:stroke;stroke:#14171d;stroke-opacity:.8;stroke-width:3px;stroke-linejoin:round}
+#scene .nm{fill:var(--blue)}
+#scene .al{fill:var(--num)}
+#scene .reached .nm{fill:var(--head)}
+.study{position:absolute;left:clamp(20px,5vw,80px);bottom:clamp(14px,3vh,34px);z-index:2;max-width:calc(100% - 40px);margin:0;padding:12px 16px;background:rgba(20,23,29,.8);border:1px solid var(--line);border-radius:6px;backdrop-filter:blur(6px);font-size:11px;letter-spacing:.14em}
+.study summary{display:flex;gap:16px;align-items:baseline;list-style:none;width:auto}
+.study summary::-webkit-details-marker{display:none}
+.study summary::after{content:'+';margin-left:auto;color:var(--num)}
+.study[open] summary::after{content:'\2212'}
+.study .h{color:var(--head)}
+.study .num{color:var(--num)}
+.stats{display:flex;flex-wrap:wrap;gap:6px 18px;margin:12px 0 10px}
+.stats .k{color:var(--head);margin-right:6px}
+.hm{display:flex;gap:8px}
+.days-lbl{display:grid;grid-template-rows:repeat(7,11px);gap:3px;margin-top:15px;font-size:9px;line-height:11px;letter-spacing:.08em;color:var(--num)}
+.months{position:relative;height:12px;margin-bottom:3px;font-size:9px;letter-spacing:.08em;color:var(--num)}
+.months span{position:absolute;top:0;white-space:nowrap}
+.scroller{overflow-x:auto;padding-bottom:4px;max-width:min(780px,calc(100vw - 140px));scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.cells{display:grid;grid-template-rows:repeat(7,11px);grid-auto-flow:column;grid-auto-columns:11px;gap:3px}
+.cells i,.legend i{display:block;width:11px;height:11px;border-radius:2px;position:relative}
+.cells i{cursor:pointer}
+.cells i.future{opacity:.25;pointer-events:none}
+.cells i.today{outline:1.5px solid var(--head);outline-offset:1px}
+.cells i.m::after{content:'\2713';position:absolute;inset:0;display:grid;place-items:center;font-size:8px;line-height:1;font-style:normal;font-weight:600;color:var(--head)}
+.c0{background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+.c1{background:#385b70}.c2{background:#497d9b}.c3{background:#5b9fc4}.c4{background:#6DC1EE}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:10px}
+.foot button{padding:6px 12px;font-size:10px}
+button:disabled{opacity:.6;cursor:default}
+.legend{display:flex;align-items:center;gap:4px;font-size:9px;letter-spacing:.08em;color:var(--num)}
+.legend i{width:10px;height:10px}
+.pulse{animation:pulse 2.6s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.smoke,.aur{animation:drift 20s ease-in-out infinite alternate}
+@keyframes pulse{50%{transform:scale(1.35);opacity:.7}}
+@keyframes drift{to{transform:translate(40px,-6px)}}
+@media (prefers-reduced-motion:reduce){.pulse,.smoke,.aur{animation:none}}
+@media (max-width:640px){.keys{display:none}}
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1330 745" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+<defs>
+<linearGradient id="sky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="745"><stop offset="0" stop-color="#10131a"/><stop offset=".5" stop-color="#202632"/><stop offset=".8" stop-color="#3b4252"/><stop offset="1" stop-color="#52607a"/></linearGradient>
+<linearGradient id="mtn" gradientUnits="userSpaceOnUse" x1="40" y1="64" x2="1330" y2="588"><stop offset="0" stop-color="#6f7587"/><stop offset="1" stop-color="#454a59"/></linearGradient>
+<linearGradient id="snow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EBEBF0" stop-opacity=".55"/><stop offset="1" stop-color="#EBEBF0" stop-opacity="0"/></linearGradient>
+<linearGradient id="lake" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f3947" stop-opacity=".75"/><stop offset="1" stop-color="#0f1217"/></linearGradient>
+<linearGradient id="aur" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6DC1EE" stop-opacity="0"/><stop offset=".5" stop-color="#6DC1EE" stop-opacity=".2"/><stop offset="1" stop-color="#8fd3c4" stop-opacity="0"/></linearGradient>
+<radialGradient id="glow"><stop offset="0" stop-color="#EBEBF0"/><stop offset=".3" stop-color="#6DC1EE" stop-opacity=".85"/><stop offset="1" stop-color="#6DC1EE" stop-opacity="0"/></radialGradient>
+<pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(55)"><line x1="0" y1="0" x2="0" y2="7" stroke="#424650" stroke-width="1.3"/></pattern>
+<filter id="blur"><feGaussianBlur stdDeviation="9"/></filter>
+<filter id="blur2"><feGaussianBlur stdDeviation="16"/></filter>
+<clipPath id="below"><rect x="-800" y="588" width="2930" height="157"/></clipPath>
+<clipPath id="mclip"><use href="#mtnShape"/></clipPath>
+<g id="land">
+<path id="mtnShape" d="M40,588 C230,560 380,500 470,430 C560,360 640,300 700,250 C770,195 830,130 862,78 L872,64 L884,74 C905,120 925,170 940,215 C960,270 1000,330 1050,380 C1120,450 1220,520 1330,560 L2000,588 Z" fill="url(#mtn)"/>
+<g clip-path="url(#mclip)">
+<path d="M872,64 L840,150 L872,215 L904,120Z" fill="#EBEBF0" opacity=".1"/>
+<path d="M830,130 L770,200 L805,275 L862,205Z" fill="#12151b" opacity=".14"/>
+<path d="M770,200 L700,250 L725,335 L805,275Z" fill="#EBEBF0" opacity=".08"/>
+<path d="M700,250 L590,335 L640,425 L725,335Z" fill="#12151b" opacity=".16"/>
+<path d="M590,335 L470,430 L560,480 L640,425Z" fill="#EBEBF0" opacity=".08"/>
+<path d="M862,205 L805,275 L850,380 L930,300Z" fill="#EBEBF0" opacity=".06"/>
+<path d="M805,275 L725,335 L760,430 L850,380Z" fill="#12151b" opacity=".12"/>
+<path d="M725,335 L640,425 L690,520 L760,430Z" fill="#EBEBF0" opacity=".07"/>
+<path d="M930,300 L850,380 L900,470 L985,400Z" fill="#12151b" opacity=".1"/>
+<path d="M850,380 L760,430 L820,540 L900,470Z" fill="#EBEBF0" opacity=".06"/>
+<rect x="0" y="40" width="1330" height="260" fill="url(#snow)"/>
+<g fill="#EBEBF0" opacity=".93">
+<path d="M872,64 L862,78 C852,98 842,112 828,134 L846,142 L856,128 L866,150 L884,116 L898,112 L884,74Z"/>
+<path d="M818,152 L790,200 L808,214 L784,252 L804,262 L832,212 L848,190Z"/>
+<path d="M690,262 L722,252 L752,262 L782,250 L766,284 L730,292 L700,306Z"/>
+<path d="M610,330 L650,318 L690,330 L664,352 L632,360Z"/>
+</g>
+<path d="M868,80 C858,130 842,175 818,225 M846,200 C830,250 800,295 770,330 M900,110 C892,170 880,230 862,290" stroke="#EBEBF0" stroke-width="4" stroke-linecap="round" fill="none" opacity=".7"/>
+<path d="M880,90 C860,150 840,200 800,260 M850,120 C830,190 790,250 760,300 M900,180 C880,260 850,340 820,430 M940,260 C930,340 900,430 880,520 M800,330 C770,380 740,430 700,480 M700,250 C690,300 640,360 600,400 M760,200 C740,260 700,300 660,330" stroke="#424650" stroke-width="1.6" fill="none"/>
+</g>
+<path d="M872,64 C890,150 930,260 960,340 C985,420 1000,500 1010,588 L2000,588 L1330,560 C1220,520 1120,450 1050,380 C1000,330 960,270 940,215 C925,170 905,120 884,74 Z" fill="#1c2029" opacity=".62"/>
+<path d="M872,64 C890,150 930,260 960,340 C985,420 1000,500 1010,588 L2000,588 L1330,560 C1220,520 1120,450 1050,380 C1000,330 960,270 940,215 C925,170 905,120 884,74 Z" fill="url(#hatch)" opacity=".55" stroke="#424650" stroke-width="1.5"/>
+<g clip-path="url(#mclip)" fill="#EBEBF0"><path d="M930,205 L972,262 L996,330 L1034,380 L1008,402 L962,362 L942,300Z" opacity=".5"/><path d="M898,112 L920,170 L936,215 L920,222 L902,170Z" opacity=".6"/></g>
+<path id="mtnLine" d="M40,588 C230,560 380,500 470,430 C560,360 640,300 700,250 C770,195 830,130 862,78 L872,64 L884,74 C905,120 925,170 940,215 C960,270 1000,330 1050,380 C1120,450 1220,520 1330,560 L2000,588" fill="none" stroke="#424650" stroke-width="2" stroke-linejoin="round"/>
+<path d="M250,588 C330,530 430,486 540,494 C650,502 760,548 880,588Z" fill="#2c353c" stroke="#424650" stroke-width="1.5"/>
+<path d="M980,588 C1080,530 1190,505 1330,525 L2000,545 L2000,588Z" fill="#2a3338" stroke="#424650" stroke-width="1.5"/>
+<path d="M-800,588 L-800,515 C-600,490 -300,530 0,520 C120,500 220,520 320,588Z" fill="#2a3338" stroke="#424650" stroke-width="1.5"/>
+<path id="forest2" fill="#232830"/>
+<path id="forest" fill="#1b1f27"/>
+</g>
+</defs>
+<rect x="-800" y="-2500" width="2930" height="3245" fill="url(#sky)"/>
+<g id="stars" fill="#EBEBF0" opacity=".55"></g>
+<circle cx="1180" cy="130" r="20" fill="#EBEBF0" opacity=".9"/><circle cx="1180" cy="130" r="34" fill="none" stroke="#424650" stroke-width="1.5"/>
+<g class="aur" filter="url(#blur2)"><path d="M-800,170 C200,90 420,200 640,120 C860,40 1060,170 2130,80 L2130,140 C1060,230 860,100 640,190 C420,270 200,160 -800,240Z" fill="url(#aur)"/><path d="M-800,170 C200,90 420,200 640,120 C860,40 1060,170 2130,80 L2130,140 C1060,230 860,100 640,190 C420,270 200,160 -800,240Z" fill="url(#aur)" opacity=".6" transform="translate(120,70)"/></g>
+<g filter="url(#blur)" fill="#EBEBF0" opacity=".15"><ellipse cx="740" cy="178" rx="60" ry="16"/><ellipse cx="792" cy="164" rx="40" ry="14"/><ellipse cx="1090" cy="212" rx="90" ry="14"/><ellipse cx="1225" cy="242" rx="70" ry="12"/></g>
+<path d="M-800,588 L-800,430 L-700,380 L-620,450 L-520,360 L-420,440 L-330,400 L-240,470 L-150,420 L-70,480 L0,470 L60,420 L110,455 L180,380 L240,440 L300,400 L380,500 L440,588Z" fill="#2d3340" stroke="#424650" stroke-width="1.5"/>
+<path d="M980,560 L1040,470 L1085,500 L1150,420 L1200,455 L1250,385 L1330,430 L1400,400 L1480,470 L1560,390 L1650,460 L1740,410 L1830,480 L1930,430 L2130,470 L2130,588Z" fill="#2d3340" stroke="#424650" stroke-width="1.5"/>
+<path d="M60,420 L44,442 L60,436 L76,446Z M180,380 L160,408 L180,400 L200,412Z M300,400 L284,424 L300,418 L316,428Z M1150,420 L1131,447 L1148,440 L1165,452Z M1250,385 L1230,412 L1248,406 L1268,418Z M1085,500 L1072,516 L1086,512Z" fill="#EBEBF0" opacity=".85"/>
+<use href="#land"/>
+<g class="smoke" filter="url(#blur)" fill="#EBEBF0" opacity=".22"><ellipse cx="925" cy="80" rx="42" ry="11"/><ellipse cx="1010" cy="72" rx="80" ry="13"/><ellipse cx="1120" cy="62" rx="120" ry="14"/></g>
+<rect x="-800" y="588" width="2930" height="157" fill="#1a1e26"/>
+<rect x="-800" y="588" width="2930" height="157" fill="url(#lake)"/>
+<g clip-path="url(#below)" opacity=".6"><g transform="translate(0,1176) scale(1,-1)"><use href="#land"/></g></g>
+<rect x="-800" y="588" width="2930" height="157" fill="url(#lake)" opacity=".5"/>
+<g id="water" stroke="#424650" stroke-width="1.5" stroke-linecap="round"></g>
+<rect x="-800" y="587" width="2930" height="2" fill="#424650"/>
+<path d="M-800,745 L-800,672 L0,672 C90,660 190,690 250,745Z" fill="#1f2a2c" stroke="#424650" stroke-width="1.5"/>
+<path d="M760,745 C820,708 930,694 1010,702 C1090,710 1150,730 1190,745Z" fill="#1f2a2c" stroke="#424650" stroke-width="1.5"/>
+<path d="M1190,745 C1250,715 1300,700 1330,696 L2130,696 L2130,745Z" fill="#1f2a2c" stroke="#424650" stroke-width="1.5"/>
+<g transform="translate(972,668) scale(1.5)" stroke="#424650" stroke-width="1.5" stroke-linejoin="round"><path d="M0,10 L24,-2 L48,10Z" fill="#2a2e38"/><rect x="4" y="10" width="40" height="20" fill="#7a3f3b"/><g stroke="none" fill="#EBEBF0"><rect x="10" y="16" width="6" height="7" opacity=".85"/><rect x="22" y="16" width="6" height="7" opacity=".85"/><rect x="34" y="16" width="6" height="7" opacity=".5"/></g></g>
+<g id="pines" fill="#14171d"></g>
+<g id="trail" fill="none" stroke-linecap="round">
+<path id="s0" d="M560,574 C600,540 520,480 600,430 C650,400 640,330 700,284" stroke="#424650" stroke-width="3" stroke-dasharray="2 8"/>
+<path id="s1" d="M700,284 C765,272 705,228 785,208 C815,198 800,170 826,154" stroke="#424650" stroke-width="3" stroke-dasharray="2 8"/>
+<path id="s2" d="M826,154 C846,146 852,128 860,112 C866,100 868,84 872,72" stroke="#424650" stroke-width="3" stroke-dasharray="2 8"/>
+<path id="walked" stroke="#6DC1EE" stroke-width="2.5"/>
+</g>
+<g fill="#EBEBF0" stroke="#14171d" stroke-width="1"><path d="M708,268 h12 v8 h-12z M707,268 l7,-6 l7,6z"/><path d="M836,140 h12 v8 h-12z M835,140 l7,-6 l7,6z"/></g>
+<g id="cps"></g>
+<g id="me"><circle class="pulse" r="26" fill="url(#glow)"/><circle r="4.5" fill="#EBEBF0"/></g>
+</svg>
+
+<div class="hud">
+  <div id="mode">FOCUS</div>
+  <div id="clock" role="timer" aria-live="off">50:00</div>
+  <div id="bar" aria-hidden="true"></div>
+  <div class="info"><span class="k">Altitude</span><span id="alt" class="num">1,608 M</span><span class="k">Next</span><span id="next">HÖRNLI HUT</span></div>
+  <div class="ctl">
+    <button id="go" class="primary">Start</button>
+    <button id="reset">Reset</button>
+    <button id="brown" aria-pressed="false">Brown noise off</button>
+  </div>
+  <details><summary>Settings</summary>
+    <div class="set">
+      <label>Focus (min)<input id="cf" type="number" min="1" max="120"></label>
+      <label>Short break<input id="cs" type="number" min="1" max="60"></label>
+      <label>Long break<input id="cl" type="number" min="1" max="90"></label>
+      <label>Brown noise volume<input id="vol" type="range" min="0" max="100" style="width:130px"></label>
+    </div>
+  </details>
+  <div class="keys">Space start/pause · R reset · B brown noise</div>
+</div>
+
+<details class="study" id="study" open>
+  <summary><span class="h">Study log</span><span class="num" id="sum"></span></summary>
+  <div class="stats">
+    <span><span class="k">Streak</span><span class="num" id="st-streak">0</span></span>
+    <span><span class="k">Best</span><span class="num" id="st-best">0</span></span>
+    <span><span class="k">Days</span><span class="num" id="st-days">0</span></span>
+    <span><span class="k">Today</span><span class="num" id="st-today">0</span></span>
+  </div>
+  <div class="hm">
+    <div class="days-lbl"><span style="grid-row:2">Mon</span><span style="grid-row:4">Wed</span><span style="grid-row:6">Fri</span></div>
+    <div class="scroller" id="scroller"><div class="months" id="months"></div><div class="cells" id="cells"></div></div>
+  </div>
+  <div class="foot">
+    <button id="check">Mark today as studied</button>
+    <div class="legend">Less <i class="c0"></i><i class="c1"></i><i class="c2"></i><i class="c3"></i><i class="c4"></i> More</div>
+  </div>
+</details>
+
+<script>
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';
+const CP=[{n:'Zermatt',a:1608,x:560,y:574,lx:-16,ly:-2},{n:'Hörnli Hut',a:3260,x:700,y:284,lx:-16,ly:-2},{n:'Solvay Hut',a:4003,x:826,y:154,lx:-16,ly:-2},{n:'Matterhorn',a:4478,x:872,y:72,lx:-16,ly:-2}];
+let cfg={focus:50,short:10,long:15,brown:false,vol:60};
+try{Object.assign(cfg,JSON.parse(localStorage.getItem('matterhorn')||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem('matterhorn',JSON.stringify(cfg))}catch(e){}};
+
+/* ---------- scene ---------- */
+let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+function el(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p.appendChild(e);return e}
+(function build(){
+  // Nordic spruces: stacked triangles with ledges
+  const spruce=(x,y,h)=>{const w=h*.3;return `M${x},${y-h} L${x+w*.5},${y-h*.62} L${x+w*.25},${y-h*.62} L${x+w*.8},${y-h*.3} L${x+w*.4},${y-h*.3} L${x+w},${y} L${x-w},${y} L${x-w*.4},${y-h*.3} L${x-w*.8},${y-h*.3} L${x-w*.25},${y-h*.62} L${x-w*.5},${y-h*.62}Z `};
+  let d='';
+  for(let x=-800;x<=2130;x+=17){const h=(22+rnd()*26)*(Math.abs(x-720)<260?.8:1.25);d+=spruce(x+rnd()*8,590,h)}
+  $('forest').setAttribute('d',d);
+  let d2='';for(let x=-806;x<=2130;x+=14){d2+=spruce(x+rnd()*8,574,14+rnd()*16)}$('forest2').setAttribute('d',d2);
+  for(let i=0;i<40;i++){const x=rnd()*2930-800,y=605+rnd()*125,l=40+rnd()*120;el('line',{x1:x,y1:y,x2:x+l,y2:y},$('water'))}
+  for(let i=0;i<130;i++)el('circle',{cx:rnd()*2930-800,cy:rnd()*760-500,r:rnd()*1.1+.3,opacity:rnd()*.7},$('stars'));
+  // foreground pines
+  [[18,620,70],[48,640,90],[90,630,100],[130,650,80],[240,670,60],[268,660,80],[300,690,45],[1210,655,70],[1250,640,95],[1296,662,75],[-120,640,90],[-330,655,80],[1420,650,90],[1650,640,80]].forEach(([x,y,h])=>{
+    el('path',{d:spruce(x,y,h)},$('pines'));
+  });
+  // checkpoints
+  CP.forEach((c,i)=>{
+    const g=el('g',{id:'cp'+i},$('cps'));
+    el('line',{x1:c.x,y1:c.y,x2:c.x+c.lx*.5,y2:c.y+c.ly*.6,stroke:'#424650','stroke-width':1.5},g);
+    el('circle',{cx:c.x,cy:c.y,r:4,fill:'currentColor',class:'dot'},g);
+    const t=el('text',{class:'nm',x:c.x+c.lx,y:c.y+c.ly,'text-anchor':'end'},g);t.textContent=c.n.toUpperCase();
+    const a=el('text',{class:'al',x:c.x+c.lx,y:c.y+c.ly+14,'text-anchor':'end'},g);a.textContent=c.a.toLocaleString('en-US')+' M';
+  });
+})();
+const segs=['s0','s1','s2'].map(id=>{const p=$(id);return{p,len:p.getTotalLength()}});
+const A0=CP[0].a,A1=CP[3].a;
+function posAt(alt){
+  alt=Math.min(A1,Math.max(A0,alt));let s=2;
+  for(let i=0;i<3;i++)if(alt<=CP[i+1].a){s=i;break}
+  const t=(alt-CP[s].a)/(CP[s+1].a-CP[s].a);
+  return segs[s].p.getPointAtLength(t*segs[s].len);
+}
+function fit(){
+  // Always keep x 280..1180 and y -25..745 fully visible, whatever the window shape.
+  const W=innerWidth,H=innerHeight,k=Math.min(W/900,H/770),vw=W/k,vh=H/k;
+  $('scene').setAttribute('viewBox',`${725-vw/2} ${745-vh} ${vw} ${vh}`);
+}
+addEventListener('resize',fit);fit();
+
+/* ---------- state ---------- */
+const LABEL={focus:'FOCUS',short:'SHORT BREAK',long:'LONG BREAK'};
+const S={mode:'focus',done:0,running:false,endAt:0,remaining:cfg.focus*60000};
+const dur=m=>cfg[m]*60000;
+function frac(){return 1-S.remaining/dur(S.mode)}
+function liveRemaining(){return S.running?Math.max(0,S.endAt-Date.now()):S.remaining}
+
+/* ---------- sound ---------- */
+let ac,brownSrc,preview=false;
+function ctx(){if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();return ac}
+function bell(f,t0,len=2.4,vol=.17){
+  const a=ctx(),g=a.createGain(),h=a.createGain();h.gain.value=.22;
+  const o=a.createOscillator(),o2=a.createOscillator();
+  o.frequency.value=f;o2.frequency.value=f*2.76;
+  o.connect(g);o2.connect(h);h.connect(g);g.connect(a.destination);
+  g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.012);g.gain.exponentialRampToValueAtTime(.0001,t0+len);
+  o.start(t0);o2.start(t0);o.stop(t0+len);o2.stop(t0+len);
+}
+function play(seq){const t=ctx().currentTime+.05;seq.forEach(([f,d])=>bell(f,t+d))}
+const SND={
+  rest:[[1046.5,0],[783.99,.4],[659.25,.8]],
+  go:[[392,0],[523.25,.3],[659.25,.6]],
+  summit:[[523.25,0],[659.25,.25],[783.99,.5],[1046.5,.75],[1318.5,1.1]]
+};
+/* Brown noise for focus: a steady, deep rumble. Stereo (independent L/R noise) and looped
+   with a cross-fade, so there is no click at the seam. */
+function brownNoise(a){
+  const sr=a.sampleRate,n=sr*10,xf=sr*1.5|0,buf=a.createBuffer(2,n,sr);
+  for(let c=0;c<2;c++){
+    const x=new Float32Array(n+xf);let b=0;
+    for(let i=0;i<x.length;i++){b=(b+.02*(Math.random()*2-1))/1.02;x[i]=b*3.5}
+    const y=buf.getChannelData(c);
+    for(let i=0;i<n;i++){if(i<xf){const k=i/xf;y[i]=x[i]*Math.sqrt(k)+x[n+i]*Math.sqrt(1-k)}else y[i]=x[i]}
+  }
+  return buf;
+}
+function startBrown(a){
+  const src=a.createBufferSource();src.buffer=brownNoise(a);src.loop=true;
+  const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=650;lp.Q.value=.5;
+  const hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=28;
+  const master=a.createGain();master.gain.value=0;
+  src.connect(lp);lp.connect(hp);hp.connect(master);master.connect(a.destination);
+  src.start();
+  master.gain.setValueAtTime(0,a.currentTime);
+  master.gain.linearRampToValueAtTime(cfg.vol/100,a.currentTime+3);
+  return{
+    vol(v){const t=a.currentTime;master.gain.cancelScheduledValues(t);master.gain.setTargetAtTime(v,t,.1)},
+    stop(){const t=a.currentTime;master.gain.cancelScheduledValues(t);master.gain.setValueAtTime(master.gain.value,t);master.gain.linearRampToValueAtTime(0,t+1.2);
+      setTimeout(()=>{try{src.stop()}catch(e){}master.disconnect()},1400)}};
+}
+function syncBrown(){
+  const want=cfg.brown&&S.mode==='focus'&&(S.running||preview);
+  if(brownSrc&&!want){brownSrc.stop();brownSrc=null}
+  if(want&&!brownSrc)brownSrc=startBrown(ctx());
+}
+
+/* ---------- flow ---------- */
+function advance(natural){
+  const was=S.mode;
+  if(was==='focus'){
+    if(natural){S.done++;addSession()}
+    S.mode=S.done>=4?'long':'short';
+    if(natural)play(S.done>=4?SND.summit:SND.rest);
+    notify(S.done>=4?'Summit reached. Take a long break.':'Focus session done. Time to rest.');
+  }else{
+    if(was==='long')S.done=0;
+    S.mode='focus';
+    if(natural){play(SND.go);notify('Break over. Back to climbing.')}
+  }
+  S.remaining=dur(S.mode);
+  if(S.running)S.endAt=Date.now()+S.remaining;
+  buildBar();syncBrown();
+}
+function notify(msg){try{if('Notification' in window&&Notification.permission==='granted'&&document.hidden)new Notification('Matterhorn',{body:msg})}catch(e){}}
+function toggle(){preview=false;
+  if(S.running){S.remaining=liveRemaining();S.running=false}
+  else{
+    ctx();try{if('Notification' in window&&Notification.permission==='default')Notification.requestPermission()}catch(e){}
+    S.running=true;S.endAt=Date.now()+S.remaining;bell(440,ctx().currentTime+.02,.7,.07);
+  }
+  syncBrown();render();
+}
+function reset(){preview=false;S.running=false;S.mode='focus';S.done=0;S.remaining=dur('focus');buildBar();syncBrown();render()}
+setInterval(()=>{
+  if(S.running){S.remaining=Math.max(0,S.endAt-Date.now());if(S.remaining<=0)advance(true)}
+  render();
+},250);
+
+/* ---------- render ---------- */
+function buildBar(){
+  const bar=$('bar');bar.innerHTML='';
+  for(let i=0;i<4;i++){
+    [['f',cfg.focus],[i<3?'s':'l',i<3?cfg.short:cfg.long]].forEach(([k,v])=>{
+      const s=document.createElement('i');s.style.flex=v;s.dataset.k=k;s.dataset.i=i;s.innerHTML='<b></b>';bar.appendChild(s);
+    });
+  }
+}
+function render(){
+  const rem=liveRemaining(),m=Math.floor(rem/60000),s=Math.floor(rem%60000/1000+(rem%1000?1:0));
+  const mm=String(s===60?m+1:m).padStart(2,'0'),ss=String(s===60?0:s).padStart(2,'0');
+  $('clock').textContent=mm+':'+ss;
+  S.remaining=S.running?rem:S.remaining;
+  const f=S.mode==='focus'?1-rem/dur('focus'):0;
+  const p=Math.min(1,(S.done+f)/4);
+  const alt=Math.round(A0+p*(A1-A0));
+  $('alt').textContent=alt.toLocaleString('en-US')+' M';
+  const nxt=CP.findIndex(c=>c.a>alt);
+  $('next').textContent=nxt<0?'SUMMIT REACHED':CP[nxt].n.toUpperCase();
+  $('mode').textContent=LABEL[S.mode];
+  document.body.classList.toggle('rest',S.mode!=='focus');
+  $('go').textContent=S.running?'Pause':(rem<dur(S.mode)?'Resume':'Start');
+  document.title=`${mm}:${ss} · ${LABEL[S.mode].toLowerCase()}`;
+  // bar
+  const phase=1-rem/dur(S.mode);
+  document.querySelectorAll('#bar i').forEach(seg=>{
+    const i=+seg.dataset.i,k=seg.dataset.k;let w=0;
+    if(k==='f'){w=i<S.done?1:(i===S.done&&S.mode==='focus'?phase:0)}
+    else{w=(i<S.done-1||(i===S.done-1&&S.mode==='focus'))?1:(i===S.done-1&&S.mode!=='focus'?phase:0)}
+    seg.firstChild.style.width=(w*100)+'%';
+  });
+  // climber + trail
+  const pt=posAt(alt);$('me').setAttribute('transform',`translate(${pt.x},${pt.y})`);
+  let d='M560,574';const n=Math.max(2,Math.round(p*60));
+  for(let i=1;i<=n;i++){const q=posAt(A0+p*(A1-A0)*i/n);d+=` L${q.x.toFixed(1)},${q.y.toFixed(1)}`}
+  $('walked').setAttribute('d',p>0?d:'');
+  CP.forEach((c,i)=>{const g=$('cp'+i);const on=alt>=c.a;g.setAttribute('class',on?'reached':'');g.style.color=on?'#6DC1EE':'#9EA0A8'});
+}
+
+/* ---------- controls ---------- */
+$('go').onclick=toggle;
+$('reset').onclick=reset;
+function paintToggles(){
+  $('brown').textContent=cfg.brown?'Brown noise on':'Brown noise off';$('brown').setAttribute('aria-pressed',cfg.brown);
+}
+$('brown').onclick=()=>{cfg.brown=!cfg.brown;preview=cfg.brown;save();paintToggles();syncBrown()};
+$('vol').value=cfg.vol;$('vol').oninput=e=>{cfg.vol=+e.target.value;save();if(brownSrc)brownSrc.vol(cfg.vol/100)};
+[['cf','focus'],['cs','short'],['cl','long']].forEach(([id,k])=>{
+  $(id).value=cfg[k];
+  $(id).onchange=e=>{
+    const v=Math.max(1,Math.min(+e.target.max,Math.round(+e.target.value)||cfg[k]));
+    e.target.value=v;cfg[k]=v;save();buildBar();
+    if(!S.running&&S.mode===k)S.remaining=dur(k);
+    render();
+  };
+});
+addEventListener('keydown',e=>{
+  if(e.target.matches('input')||e.ctrlKey||e.metaKey||e.altKey)return;
+  const k=e.key.toLowerCase();
+  if(k===' '&&!e.target.matches('button')){e.preventDefault();toggle()}
+  else if(k==='r'){reset()}
+  else if(k==='b'){$('brown').click()}
+});
+/* ---------- study log (GitHub-style) ----------
+   Each finished focus session adds to today's square. Click any past square to tick a day you
+   studied away from the timer (shown with a check mark). Data stays in this browser (localStorage). */
+const LOGKEY='matterhorn-study';
+let log={};try{log=JSON.parse(localStorage.getItem(LOGKEY)||'{}')}catch(e){}
+const saveLog=()=>{try{localStorage.setItem(LOGKEY,JSON.stringify(log))}catch(e){}};
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const lvl=r=>!r?0:r.s>0?(r.s>=6?4:r.s>=4?3:r.s>=2?2:1):(r.m?2:0);
+function addSession(){const k=ymd(new Date());(log[k]||(log[k]={s:0,m:0})).s++;saveLog();renderLog()}
+function toggleDay(k){
+  const r=log[k]||(log[k]={s:0,m:0});
+  if(r.s>0)return;                       // days with real sessions are not editable
+  r.m=r.m?0:1;if(!r.m)delete log[k];
+  saveLog();renderLog();
+}
+function streaks(){
+  const day=864e5,keys=Object.keys(log).filter(k=>lvl(log[k])>0).sort();
+  let best=0,run=0,prev=null;
+  keys.forEach(k=>{const t=Date.parse(k+'T00:00:00');run=(prev!==null&&Math.round((t-prev)/day)===1)?run+1:1;best=Math.max(best,run);prev=t});
+  let cur=0;const d=new Date();d.setHours(0,0,0,0);
+  if(!lvl(log[ymd(d)]))d.setDate(d.getDate()-1);   // today still empty: the streak is not broken yet
+  while(lvl(log[ymd(d)])){cur++;d.setDate(d.getDate()-1)}
+  return{cur,best,days:keys.length};
+}
+let logScrolled=false;
+function renderLog(){
+  const weeks=53,P=14;                                   // 53 weeks = a full year, 14px per column
+  const today=new Date();today.setHours(0,0,0,0);
+  const start=new Date(today);start.setDate(today.getDate()-today.getDay()-(weeks-1)*7);   // weeks start on Sunday
+  const cells=$('cells'),months=$('months'),tk=ymd(today);
+  cells.innerHTML='';months.innerHTML='';months.style.width=weeks*P+'px';
+  const labels=[];let lastM=-1;
+  for(let i=0;i<weeks*7;i++){
+    const d=new Date(start);d.setDate(start.getDate()+i);
+    const k=ymd(d),r=log[k],future=d>today,nice=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    const c=document.createElement('i');
+    c.className='c'+lvl(r)+(r&&!r.s&&r.m?' m':'')+(k===tk?' today':'')+(future?' future':'');
+    c.dataset.k=k;
+    c.title=future?nice:r&&r.s?`${r.s} focus session${r.s>1?'s':''} · ${nice}`:r&&r.m?`Studied (ticked) · ${nice}`:`No study · ${nice} (click to tick)`;
+    cells.appendChild(c);
+    if(i%7===0&&d.getMonth()!==lastM){lastM=d.getMonth();labels.push({col:i/7,text:d.toLocaleDateString('en-US',{month:'short'})})}
+  }
+  // a month that owns only one column at the very start would collide with the next label: drop that one, never a later month
+  if(labels.length>1&&labels[1].col-labels[0].col<2)labels.shift();
+  labels.forEach(l=>{const sp=document.createElement('span');sp.textContent=l.text;sp.style.left=l.col*P+'px';months.appendChild(sp)});
+  const st=streaks(),t=log[tk],done=!!(t&&(t.m||t.s));
+  $('st-streak').textContent=st.cur;$('st-best').textContent=st.best;$('st-days').textContent=st.days;$('st-today').textContent=(t&&t.s)||0;
+  $('sum').textContent=st.cur+(st.cur===1?' day':' days')+' streak';
+  $('check').textContent=done?'✓ Studied today':'Mark today as studied';
+  $('check').disabled=!!(t&&t.s);
+  if(!logScrolled){const sc=$('scroller');sc.scrollLeft=sc.scrollWidth;logScrolled=true}   // start at today (right edge) on small screens
+}
+$('cells').onclick=e=>{const k=e.target.dataset&&e.target.dataset.k;if(k&&!e.target.classList.contains('future'))toggleDay(k)};
+$('check').onclick=()=>toggleDay(ymd(new Date()));
+addEventListener('resize',renderLog);setInterval(renderLog,60000);   // also rolls over at midnight
+if(innerHeight<800)$('study').open=false;                            // keep short screens uncluttered
+
+paintToggles();buildBar();render();renderLog();
+</script>
+</body>
+</html>
